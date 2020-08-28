@@ -14,7 +14,7 @@ transform_composed = transforms.Compose([
 data_path = './data/aligned/CASIA'
 dataset = datasets.ImageFolder(root=data_path, transform=transform_composed)
 
-def load_dataset(train_split=0.9):
+def load_dataset(train_split=0.8):
     data_path = './data/aligned/CASIA'
     dataset = datasets.ImageFolder(root=data_path, transform=transform_composed)
 

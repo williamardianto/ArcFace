@@ -1,13 +1,13 @@
 import math
 
 import torch
-from torch.nn import functional as F
 from torch import nn
+from torch.nn import functional as F
 from torchvision import models
 
 
 class ArcFace(nn.Module):
-    def __init__(self, pretrained=True, embedding_size=2, classnum=5, s=64., m=0.5, easy_margin=False,
+    def __init__(self, pretrained=True, embedding_size=2, classnum=5, s=64., m=0.8, easy_margin=False,
                  device='cpu', get_embedding=False):
         super(ArcFace, self).__init__()
         self.get_embedding = get_embedding
@@ -34,7 +34,7 @@ class ArcFace(nn.Module):
             return emb
 
         else:
-            cosine = F.linear(F.normalize(emb), F.normalize(self.weight)).clamp(-1 + self.eps, 1 - self.eps)
+            cosine = F.linear(F.normalize(emb), F.normalize(self.weight)).clamp(min=-1 + self.eps, max=1 - self.eps)
             sine = torch.sqrt((1.0 - torch.pow(cosine, 2)))
             phi = cosine * self.cos_m - sine * self.sin_m
             if self.easy_margin:
