@@ -8,15 +8,15 @@ from torchvision import models
 
 class ArcFace(nn.Module):
     def __init__(self, pretrained=True, embedding_size=2, classnum=5, s=64., m=0.5, easy_margin=False,
-                 device='cpu', training=True):
+                 device='cpu', get_embedding=False):
         super(ArcFace, self).__init__()
-        self.training = training
-        self.backbone = models.resnet50(pretrained=pretrained)
-        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, embedding_size)
+        self.get_embedding = get_embedding
+        self.backbone = models.resnet50(pretrained=pretrained).to(device)
+        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, embedding_size).to(device)
 
         self.classnum = classnum
         self.device = device
-        self.weight = nn.Parameter(torch.FloatTensor(classnum, embedding_size))
+        self.weight = nn.Parameter(torch.FloatTensor(classnum, embedding_size)).to(device)
         nn.init.xavier_uniform_(self.weight)
 
         self.easy_margin = easy_margin
@@ -30,7 +30,7 @@ class ArcFace(nn.Module):
     def forward(self, x, label):
         emb = self.backbone(x)
 
-        if not self.training:
+        if self.get_embedding:
             return emb
 
         else:
