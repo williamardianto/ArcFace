@@ -1,9 +1,15 @@
 import numpy as np
 import cv2
+import PIL
+from PIL import Image
+from torchvision import transforms
+import torch
 
+transform_composed = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
 def face_aligner(img, landmark=None, **kwargs):
-    M = None
     image_size = []
     str_image_size = kwargs.get('image_size', '')
     if len(str_image_size) > 0:
@@ -31,3 +37,15 @@ def face_aligner(img, landmark=None, **kwargs):
 
         warped = cv2.warpAffine(img, M, (image_size[1], image_size[0]), borderValue=0.0)
         return warped
+
+def get_embedding(model, image):
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+    elif isinstance(image, str):
+        image = Image.open(str)
+
+    input_tensor = transform_composed(image)
+    input_tensor = torch.unsqueeze(input_tensor, 0)
+
+    embedding = model(input_tensor)
+    return embedding
