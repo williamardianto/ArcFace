@@ -7,6 +7,9 @@ from torch import nn
 from models.arcface import ArcFace
 
 device = 'cuda'
+classnum = 10
+batch_size = 128
+
 transform_composed = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
@@ -23,8 +26,8 @@ def load_dataset(train_split=0.8):
 
     train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=64, num_workers=0, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=64, num_workers=0, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, num_workers=0, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=0, shuffle=True)
 
     return {'train_loader': train_loader, 'test_loader': test_loader}
 
@@ -36,8 +39,9 @@ def trainer(dataset, model, optimizer, epochs):
             data, label = data.to(device), label.to(device)
 
             optimizer.zero_grad()
-
-            thetas = model(data, label)
+            label_onehot = torch.zeros([data.size()[0], classnum]).to(device)
+            label_onehot.scatter_(1, label.view(-1, 1).long(), 1)
+            thetas = model(data, label_onehot)
             loss = F.cross_entropy(thetas, label)
             loss.backward()
 
@@ -48,14 +52,22 @@ def trainer(dataset, model, optimizer, epochs):
         for test_batch_idx, (data, label) in enumerate(dataset['test_loader']):
             model.eval()
             data, label = data.to(device), label.to(device)
-            thetas = model(data, label)
+
+            label_onehot = torch.zeros([data.size()[0], classnum]).to(device)
+            label_onehot.scatter_(1, label.view(-1, 1).long(), 1)
+
+            thetas = model(data, label_onehot)
             test_loss = F.cross_entropy(thetas, label)
             if test_batch_idx % 5 == 0:
                 print('Test Epoch: {} \tLoss: {:.6f}'.format(epoch, test_loss.item()))
 
 def main():
 
-    arcface = ArcFace(classnum=10, device=device)
+    arcface = ArcFace(classnum=10)
+    arcface = nn.DataParallel(arcface)
+    arcface.to(device)
+
+
     optimizer = optim.SGD(arcface.parameters(), lr=0.001)
     epochs = 50
 

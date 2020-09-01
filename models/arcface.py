@@ -5,16 +5,14 @@ from torch import nn
 from torch.nn import functional as F
 from torchvision import models
 
-
-class ArcFace(nn.Module):
+class Backbone(nn.Module):
     def __init__(self, pretrained=True, embedding_size=512, device='cpu'):
-        super(ArcFace, self).__init__()
-        self.backbone = models.resnet50(pretrained=pretrained).to(device)
-        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, embedding_size).to(device)
-
+        super(Backbone, self).__init__()
+        self.model = models.resnet50(pretrained=pretrained)
+        self.model.fc = nn.Linear(self.model.fc.in_features, embedding_size)
 
     def forward(self, x):
-        emb = self.backbone(x)
+        emb = self.model(x)
         return emb
 
 
@@ -36,7 +34,7 @@ class ArcMargin(nn.Module):
         self.threshold = math.cos(math.pi - m)
         self.eps = 1e-6
 
-    def forward(self, embbedings, label):
+    def forward(self, embbedings, label_onehot):
         cosine = F.linear(F.normalize(embbedings), F.normalize(self.weight)).clamp(-1 + self.eps, 1 - self.eps)
         sine = torch.sqrt((1.0 - torch.pow(cosine, 2)))
         phi = cosine * self.cos_m - sine * self.sin_m
@@ -45,10 +43,18 @@ class ArcMargin(nn.Module):
         else:
             phi = torch.where(cosine > self.threshold, phi, cosine - self.mm)
 
-        one_hot = torch.zeros(cosine.size(), device=self.device)
-        one_hot.scatter_(1, label.view(-1, 1).long(), 1)
-
-        output = torch.where(one_hot.bool(), phi, cosine)
+        output = torch.where(label_onehot.bool(), phi, cosine)
         output *= self.s
 
+        return output
+
+class ArcFace(nn.Module):
+    def __init__(self, classnum):
+        super(ArcFace, self).__init__()
+        self.backbone = Backbone()
+        self.margin = ArcMargin(classnum=classnum)
+
+    def forward(self, x, label):
+        emb = self.backbone(x)
+        output = self.margin(emb, label)
         return output

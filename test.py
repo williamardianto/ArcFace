@@ -8,7 +8,8 @@ from utils import get_embedding
 from models.arcface import ArcFace
 
 if __name__ == '__main__':
-    lfw_dir = './data/lfw'
+    # lfw_dir = './data/lfw'
+    lfw_dir = './data/lfw-deepfunneled'
     lfw_pairs = './data/pairs.txt'
 
     pairs = lfw.read_pairs(os.path.expanduser(lfw_pairs))
@@ -16,21 +17,22 @@ if __name__ == '__main__':
     # Get the paths for the corresponding images
     paths, actual_issame = lfw.get_paths(os.path.expanduser(lfw_dir), pairs)
 
-    print(paths)
+    # print(paths)
     print('paths len:', len(paths))
     print('pairs len: ', len(actual_issame))
 
-    embeddings = np.zeros([1000, 512])
-    model = ArcFace()
+    embeddings = np.zeros([len(paths), 512])
+    arcface = ArcFace(classnum=10)
+    backbone = arcface.backbone.to('cuda')
 
     with torch.no_grad():
-        for idx, path in enumerate(paths[:1000]):
+        for idx, path in enumerate(paths):
             print('process image no:', idx)
             img = Image.open(path)
-            embedding = get_embedding(model, img)
-            embeddings[idx] = embedding.numpy()
+            embedding = get_embedding(backbone, img, device='cuda')
+            embeddings[idx] = embedding.cpu().numpy()
 
-    np.save('temp.npy', embeddings)
+    np.save('temp2.npy', embeddings)
 
     # embeddings = np.load('temp.npy')
 

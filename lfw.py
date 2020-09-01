@@ -30,6 +30,7 @@ from __future__ import print_function
 import os
 
 from sklearn.model_selection import KFold
+from sklearn import metrics
 import numpy as np
 import math
 
@@ -41,11 +42,12 @@ def evaluate(embeddings, actual_issame, nrof_folds=10, distance_metric=0, subtra
     embeddings2 = embeddings[1::2]
     tpr, fpr, accuracy = calculate_roc(thresholds, embeddings1, embeddings2,
         np.asarray(actual_issame), nrof_folds=nrof_folds, distance_metric=distance_metric, subtract_mean=subtract_mean)
+    auc = metrics.auc(fpr, tpr)
     # thresholds = np.arange(0, 4, 0.001)
     # val, val_std, far = facenet.calculate_val(thresholds, embeddings1, embeddings2,
     #     np.asarray(actual_issame), 1e-3, nrof_folds=nrof_folds, distance_metric=distance_metric, subtract_mean=subtract_mean)
     # return tpr, fpr, accuracy, val, val_std, far
-    return tpr, fpr, accuracy
+    return tpr, fpr, auc, accuracy
 
 def get_paths(lfw_dir, pairs):
     nrof_skipped_pairs = 0

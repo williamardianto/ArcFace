@@ -38,13 +38,13 @@ def face_aligner(img, landmark=None, **kwargs):
         warped = cv2.warpAffine(img, M, (image_size[1], image_size[0]), borderValue=0.0)
         return warped
 
-def get_embedding(model, image):
+def get_embedding(model, image, device):
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
     elif isinstance(image, str):
         image = Image.open(str)
 
-    input_tensor = transform_composed(image)
+    input_tensor = transform_composed(image).to(device)
     input_tensor = torch.unsqueeze(input_tensor, 0)
 
     embedding = model(input_tensor)
