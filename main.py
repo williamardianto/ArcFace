@@ -3,9 +3,10 @@ import torch.optim as optim
 from torch.nn import functional as F
 from torchvision import transforms, datasets
 from torch import nn
-
+import numpy as np
 from models.arcface import ArcFace
-
+import lfw
+import os
 device = 'cuda'
 classnum = 10
 batch_size = 128
@@ -16,6 +17,14 @@ transform_composed = transforms.Compose([
 
 data_path = './data/aligned/CASIA'
 dataset = datasets.ImageFolder(root=data_path, transform=transform_composed)
+
+lfw_dir = './data/lfw-deepfunneled'
+lfw_pairs = './data/pairs.txt'
+
+pairs = lfw.read_pairs(os.path.expanduser(lfw_pairs))
+
+# Get the paths for the corresponding images
+paths, actual_issame = lfw.get_paths(os.path.expanduser(lfw_dir), pairs)
 
 def load_dataset(train_split=0.8):
     data_path = './data/aligned/CASIA'
@@ -61,15 +70,24 @@ def trainer(dataset, model, optimizer, epochs):
             if test_batch_idx % 5 == 0:
                 print('Test Epoch: {} \tLoss: {:.6f}'.format(epoch, test_loss.item()))
 
+        # evaluate on lfw
+        # embeddings = np.load('temp.npy')
+        # tpr, fpr, auc, accuracy = lfw.evaluate(embeddings, actual_issame)
+        # print('AUC:',auc)
+        # print('Accuracy:', accuracy)
+
+    torch.save(model.module.backbone.state_dict(), 'resnet50.pth')
+
+
+
 def main():
 
     arcface = ArcFace(classnum=10)
     arcface = nn.DataParallel(arcface)
     arcface.to(device)
 
-
     optimizer = optim.SGD(arcface.parameters(), lr=0.001)
-    epochs = 50
+    epochs = 10
 
     datasets = load_dataset()
 

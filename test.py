@@ -8,8 +8,8 @@ from utils import get_embedding
 from models.arcface import ArcFace
 
 if __name__ == '__main__':
-    # lfw_dir = './data/lfw'
-    lfw_dir = './data/lfw-deepfunneled'
+    lfw_dir = './data/lfw'
+    # lfw_dir = './data/lfw-deepfunneled'
     lfw_pairs = './data/pairs.txt'
 
     pairs = lfw.read_pairs(os.path.expanduser(lfw_pairs))
@@ -22,8 +22,9 @@ if __name__ == '__main__':
     print('pairs len: ', len(actual_issame))
 
     embeddings = np.zeros([len(paths), 512])
-    arcface = ArcFace(classnum=10)
-    backbone = arcface.backbone.to('cuda')
+    arcface = ArcFace(classnum=10).to('cuda')
+    backbone = arcface.backbone
+    backbone.load_state_dict(torch.load('resnet50.pth'))
 
     with torch.no_grad():
         for idx, path in enumerate(paths):
@@ -36,8 +37,9 @@ if __name__ == '__main__':
 
     # embeddings = np.load('temp.npy')
 
-    tpr, fpr, accuracy = lfw.evaluate(embeddings,actual_issame)
+    tpr, fpr, auc, accuracy = lfw.evaluate(embeddings,actual_issame)
 
     print('tpr:', tpr)
     print('fpr:', fpr)
+    print('auc:', auc)
     print('acc:', accuracy)
