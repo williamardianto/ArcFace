@@ -40,14 +40,14 @@ def evaluate(embeddings, actual_issame, nrof_folds=10, distance_metric=0, subtra
     thresholds = np.arange(0, 4, 0.01)
     embeddings1 = embeddings[0::2]
     embeddings2 = embeddings[1::2]
-    tpr, fpr, accuracy = calculate_roc(thresholds, embeddings1, embeddings2,
+    tpr, fpr, accuracy, best_threshold = calculate_roc(thresholds, embeddings1, embeddings2,
         np.asarray(actual_issame), nrof_folds=nrof_folds, distance_metric=distance_metric, subtract_mean=subtract_mean)
     auc = metrics.auc(fpr, tpr)
     # thresholds = np.arange(0, 4, 0.001)
     # val, val_std, far = facenet.calculate_val(thresholds, embeddings1, embeddings2,
     #     np.asarray(actual_issame), 1e-3, nrof_folds=nrof_folds, distance_metric=distance_metric, subtract_mean=subtract_mean)
     # return tpr, fpr, accuracy, val, val_std, far
-    return tpr, fpr, auc, accuracy
+    return tpr, fpr, auc, accuracy, best_threshold
 
 def get_paths(lfw_dir, pairs):
     nrof_skipped_pairs = 0
@@ -119,6 +119,7 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
     tprs = np.zeros((nrof_folds, nrof_thresholds))
     fprs = np.zeros((nrof_folds, nrof_thresholds))
     accuracy = np.zeros((nrof_folds))
+    best_threshold = np.zeros((nrof_folds))
 
     indices = np.arange(nrof_pairs)
 
@@ -142,9 +143,11 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
         _, _, accuracy[fold_idx] = calculate_accuracy(thresholds[best_threshold_index], dist[test_set],
                                                       actual_issame[test_set])
 
+        best_threshold[fold_idx] = thresholds[best_threshold_index]
+
         tpr = np.mean(tprs, 0)
         fpr = np.mean(fprs, 0)
-    return tpr, fpr, accuracy
+    return tpr, fpr, accuracy, best_threshold
 
 
 def calculate_accuracy(threshold, dist, actual_issame):
