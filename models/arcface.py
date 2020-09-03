@@ -15,8 +15,6 @@ class Backbone(nn.Module):
         emb = self.model(x)
         return emb
 
-
-
 class ArcMargin(nn.Module):
     # implementation of additive margin softmax loss in https://arxiv.org/abs/1801.05599
     def __init__(self, embedding_size=512, classnum=51332, s=64., m=0.5, easy_margin=False, device='cpu'):

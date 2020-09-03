@@ -1,13 +1,17 @@
 import numpy as np
 import cv2
-import PIL
+from torch.nn import functional as F
 from PIL import Image
 from torchvision import transforms
 import torch
 
+# transform_composed = transforms.Compose([
+#     transforms.ToTensor(),
+#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+
 transform_composed = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
 
 def face_aligner(img, landmark=None, **kwargs):
     image_size = []
@@ -38,14 +42,22 @@ def face_aligner(img, landmark=None, **kwargs):
         warped = cv2.warpAffine(img, M, (image_size[1], image_size[0]), borderValue=0.0)
         return warped
 
-def get_embedding(model, image, device):
+def get_embedding(model, image, tta, device):
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
     elif isinstance(image, str):
         image = Image.open(str)
 
-    input_tensor = transform_composed(image).to(device)
-    input_tensor = torch.unsqueeze(input_tensor, 0)
+    if tta:
+        mirror = transforms.functional.hflip(image)
+        emb = model(transform_composed(image).to(device).unsqueeze(0))
+        emb_mirror = model(transform_composed(mirror).to(device).unsqueeze(0))
+        embedding = F.normalize(emb + emb_mirror)
+    else:
+        embedding = model(transform_composed(image).to(device).unsqueeze(0))
 
-    embedding = model(input_tensor)
+    # input_tensor = transform_composed(image).to(device)
+    # input_tensor = torch.unsqueeze(input_tensor, 0)
+    # embedding = model(input_tensor)
+
     return embedding
