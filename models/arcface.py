@@ -20,7 +20,7 @@ class Resnet50(nn.Module):
 class ShufflenetV2(nn.Module):
     def __init__(self, pretrained=True, embedding_size=512):
         super(ShufflenetV2, self).__init__()
-        self.model = models.shufflenet_v2_x2_0(pretrained=True)
+        self.model = torch.hub.load('pytorch/vision:v0.6.0', 'shufflenet_v2_x1_0', pretrained=True)
         self.model.fc = nn.Linear(self.model.fc.in_features, embedding_size)
 
     def forward(self, x):
