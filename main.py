@@ -13,7 +13,7 @@ from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 device = 'cuda'
 classnum = 10575
-batch_size = 256
+batch_size = 512
 
 transform_composed = transforms.Compose([
     transforms.RandomHorizontalFlip(p=0.5),
@@ -39,15 +39,25 @@ def load_dataset(train_split=1):
 
     train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, num_workers=0, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, num_workers=4, shuffle=True)
     # test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, num_workers=0, shuffle=True)
 
     # return {'train_loader': train_loader, 'test_loader': test_loader}
     return {'train_loader': train_loader}
 
 
-def trainer(dataset, model, optimizer, scheduler, epochs):
-    for epoch in range(epochs):
+def trainer(dataset, model, optimizer, scheduler, epochs, checkpoint=None):
+
+    epochs_range = range(epochs)
+    if checkpoint is not None:
+        checkpoint_state = torch.load(checkpoint)
+        model.module.load_state_dict(checkpoint_state['model_state_dict'])
+        optimizer.load_state_dict(checkpoint_state['optimizer_state_dict'])
+        # scheduler.load_state_dict(checkpoint_state['scheduler_state_dict'])
+        epochs_range = range(checkpoint_state['epoch'], epochs)
+
+
+    for epoch in epochs_range:
         for train_batch_idx, (data, label) in enumerate(dataset['train_loader']):
             model.train()
             data, label = data.to(device), label.to(device)
@@ -64,7 +74,7 @@ def trainer(dataset, model, optimizer, scheduler, epochs):
 
             if train_batch_idx % 10 == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, train_batch_idx * len(data), len(dataset['train_loader'].dataset),
+                    epoch+1, train_batch_idx * len(data), len(dataset['train_loader'].dataset),
                            100. * train_batch_idx / len(dataset['train_loader']), loss.item()))
 
         # for test_batch_idx, (data, label) in enumerate(dataset['test_loader']):
@@ -86,7 +96,20 @@ def trainer(dataset, model, optimizer, scheduler, epochs):
         print('accuracy:', accuracy)
         print('best threshold:', best_threshold)
 
-    torch.save(model.module.backbone.state_dict(), 'resnet50.pth')
+        # torch.save(model.module.state_dict(), 'resnet50_{}_{:.5f}.pth'.format(epoch+1, auc))
+
+        torch.save({
+            'epoch': epoch+1,
+            'model_state_dict': model.module.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'loss': loss,
+            'auc': auc,
+            'accuracy': accuracy,
+            'best_threshold': best_threshold
+            }, 'resnet50_{}_{:.5f}.pth'.format(epoch+1, auc))
+
+
 
 
 
@@ -96,15 +119,17 @@ def main():
     arcface = nn.DataParallel(arcface)
     arcface.to(device)
 
-    optimizer = optim.SGD(arcface.parameters(), lr=0.001)
-    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=490848//4, T_mult=1)
-    epochs = 40
-
     datasets = load_dataset()
 
+    optimizer = optim.SGD(arcface.parameters(), lr=0.01)
+    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=len(datasets['train_loader']), T_mult=1)
+    epochs = 500
 
 
-    trainer(datasets, arcface, optimizer, scheduler, epochs)
+    checkpoint = 'resnet50_42_0.92730.pth'
+
+
+    trainer(datasets, arcface, optimizer, scheduler, epochs, checkpoint)
 
 
 if __name__ == '__main__':
