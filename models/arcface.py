@@ -4,11 +4,23 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torchvision import models
+import enum
 
-class Backbone(nn.Module):
-    def __init__(self, pretrained=True, embedding_size=512, device='cpu'):
-        super(Backbone, self).__init__()
+
+class Resnet50(nn.Module):
+    def __init__(self, pretrained=True, embedding_size=512):
+        super(Resnet50, self).__init__()
         self.model = models.resnet50(pretrained=pretrained)
+        self.model.fc = nn.Linear(self.model.fc.in_features, embedding_size)
+
+    def forward(self, x):
+        emb = self.model(x)
+        return emb
+
+class ShufflenetV2(nn.Module):
+    def __init__(self, pretrained=True, embedding_size=512):
+        super(ShufflenetV2, self).__init__()
+        self.model = models.shufflenet_v2_x2_0(pretrained=True)
         self.model.fc = nn.Linear(self.model.fc.in_features, embedding_size)
 
     def forward(self, x):
@@ -47,9 +59,12 @@ class ArcMargin(nn.Module):
         return output
 
 class ArcFace(nn.Module):
-    def __init__(self, classnum):
+    def __init__(self, classnum, backbone='shufflenetv2'):
         super(ArcFace, self).__init__()
-        self.backbone = Backbone()
+        if backbone == 'resnet50':
+            self.backbone = Resnet50(pretrained=True, embedding_size=512)
+        elif backbone == 'shufflenetv2':
+            self.backbone = ShufflenetV2(pretrained=True, embedding_size=512)
         self.margin = ArcMargin(classnum=classnum)
 
     def forward(self, x, label):

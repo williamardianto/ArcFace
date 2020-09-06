@@ -115,7 +115,7 @@ def trainer(dataset, model, optimizer, scheduler, epochs, checkpoint=None):
 
 def main():
 
-    arcface = ArcFace(classnum=classnum)
+    arcface = ArcFace(classnum=classnum, backbone='shufflenetv2')
     arcface = nn.DataParallel(arcface)
     arcface.to(device)
 
