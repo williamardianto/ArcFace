@@ -1,37 +1,26 @@
-from scipy import misc
-import sys
-import os
 import argparse
-import numpy as np
+import os
 import random
+import sys
 from time import sleep
+
+import numpy as np
 from PIL import Image
-from models import detect_face
+
 from models.mtcnn import MTCNN
 
+
 def main(args):
+    device = 'cuda'
     sleep(random.random())
     output_dir = os.path.expanduser(args.output_dir)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    # Store some git revision info in a text file in the log directory
-    src_path, _ = os.path.split(os.path.realpath(__file__))
-    # facenet.store_revision_info(src_path, output_dir, ' '.join(sys.argv))
-    # dataset = facenet.get_dataset(args.input_dir)
+    dataset = get_dataset(args.input_dir)
 
     print('Creating networks and loading parameters')
 
-    # with tf.Graph().as_default():
-    #     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=args.gpu_memory_fraction)
-    #     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
-    #     with sess.as_default():
-    #         pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
-
-    mtcnn = MTCNN()
-
-    minsize = 20  # minimum size of face
-    threshold = [0.6, 0.7, 0.7]  # three steps's threshold
-    factor = 0.709  # scale factor
+    mtcnn = MTCNN(min_face_size=20, thresholds=[0.6, 0.7, 0.7], factor=0.709, device=device)
 
     # Add a random key to the filename to allow alignment using multiple processes
     random_key = np.random.randint(0, high=99999)
@@ -72,14 +61,12 @@ def main(args):
 
                         bounding_boxes, _ = mtcnn.detect(img, landmarks=False)
 
-                        # bounding_boxes, _ = detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold,
-                        #                                                   factor)
-                        nrof_faces = bounding_boxes.shape[0]
-                        if nrof_faces > 0:
+                        if bounding_boxes is not None:
+                            nrof_faces = bounding_boxes.shape[0]
                             det = bounding_boxes[:, 0:4]
                             det_arr = []
                             img_size = np.asarray(img.shape)[0:2]
-                            if nrof_faces > 1:
+                            if nrof_faces > 1:  # if there are multiple faces, it will choose the face that closed to center
                                 if args.detect_multiple_faces:
                                     for i in range(nrof_faces):
                                         det_arr.append(np.squeeze(det[i]))
@@ -103,14 +90,15 @@ def main(args):
                                 bb[2] = np.minimum(det[2] + args.margin / 2, img_size[1])
                                 bb[3] = np.minimum(det[3] + args.margin / 2, img_size[0])
                                 cropped = img[bb[1]:bb[3], bb[0]:bb[2], :]
-                                scaled = misc.imresize(cropped, (args.image_size, args.image_size), interp='bilinear')
+                                scaled = Image.fromarray(cropped).resize((args.image_size, args.image_size),
+                                                                         Image.BILINEAR)
                                 nrof_successfully_aligned += 1
                                 filename_base, file_extension = os.path.splitext(output_filename)
                                 if args.detect_multiple_faces:
                                     output_filename_n = "{}_{}{}".format(filename_base, i, file_extension)
                                 else:
                                     output_filename_n = "{}{}".format(filename_base, file_extension)
-                                misc.imsave(output_filename_n, scaled)
+                                scaled.save(output_filename_n)
                                 text_file.write('%s %d %d %d %d\n' % (output_filename_n, bb[0], bb[1], bb[2], bb[3]))
                         else:
                             print('Unable to align "%s"' % image_path)
@@ -119,11 +107,51 @@ def main(args):
     print('Total number of images: %d' % nrof_images_total)
     print('Number of successfully aligned images: %d' % nrof_successfully_aligned)
 
+
 def to_rgb(img):
     w, h = img.shape
     ret = np.empty((w, h, 3), dtype=np.uint8)
     ret[:, :, 0] = ret[:, :, 1] = ret[:, :, 2] = img
     return ret
+
+
+def get_image_paths(facedir):
+    image_paths = []
+    if os.path.isdir(facedir):
+        images = os.listdir(facedir)
+        image_paths = [os.path.join(facedir, img) for img in images]
+    return image_paths
+
+
+class ImageClass():
+    "Stores the paths to images for a given class"
+
+    def __init__(self, name, image_paths):
+        self.name = name
+        self.image_paths = image_paths
+
+    def __str__(self):
+        return self.name + ', ' + str(len(self.image_paths)) + ' images'
+
+    def __len__(self):
+        return len(self.image_paths)
+
+
+def get_dataset(path):
+    dataset = []
+    path_exp = os.path.expanduser(path)
+    classes = [path for path in os.listdir(path_exp) \
+               if os.path.isdir(os.path.join(path_exp, path))]
+    classes.sort()
+    nrof_classes = len(classes)
+    for i in range(nrof_classes):
+        class_name = classes[i]
+        facedir = os.path.join(path_exp, class_name)
+        image_paths = get_image_paths(facedir)
+        dataset.append(ImageClass(class_name, image_paths))
+
+    return dataset
+
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
