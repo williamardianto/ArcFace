@@ -1,5 +1,3 @@
-
-
 class Config():
     def __init__(self):
         self.lr =0.01

@@ -12,10 +12,10 @@ def get_eval_dataset(image_dir,pairs):
     paths, actual_issame = lfw.get_paths(os.path.expanduser(image_dir), pairs)
     return paths, actual_issame
 
-def evaluate(model, paths, actual_issame, batch_size=64, embedding_size=512, device='cpu'):
+def evaluate(model, dataloader, actual_issame, batch_size=64, embedding_size=512, device='cpu'):
     model.eval()
 
-    dataloader = lfw.dataloader(paths, batch_size=batch_size)
+    # dataloader = lfw.dataloader(paths, batch_size=batch_size)
 
     embeddings = np.zeros((len(dataloader.dataset), embedding_size))
 
