@@ -5,3 +5,7 @@ data
 .ipynb_checkpoints
 
 *.npy
+
+work_space
+
+*.pth

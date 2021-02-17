@@ -4,14 +4,28 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torchvision import models
-import enum
-
+from .models import ResNet
+from .inception_resnet_v1 import InceptionResnetV1
 
 class Resnet50(nn.Module):
     def __init__(self, pretrained=True, embedding_size=512):
         super(Resnet50, self).__init__()
         self.model = models.resnet50(pretrained=pretrained)
         self.model.fc = nn.Linear(self.model.fc.in_features, embedding_size)
+
+class Backbone(nn.Module):
+    def __init__(self, pretrained=True, embedding_size=512, device='cpu'):
+        super(Backbone, self).__init__()
+        # self.model = models.resnet50(pretrained=pretrained)
+        # # self.model = InceptionResnetV1()
+        # self.model.fc = nn.Sequential(
+        #     nn.Linear(self.model.fc.in_features, embedding_size, bias=False),
+        #     nn.BatchNorm1d(512)
+        # )
+        num_layers = 50
+        mode = 'ir_se'
+        drop_ratio = 0.6
+        self.model = ResNet(num_layers, drop_ratio, mode)
 
     def forward(self, x):
         emb = self.model(x)
@@ -45,8 +59,8 @@ class ArcMargin(nn.Module):
         self.eps = 1e-6
 
     def forward(self, embbedings, label_onehot):
-        cosine = F.linear(F.normalize(embbedings), F.normalize(self.weight)).clamp(-1 + self.eps, 1 - self.eps)
-        sine = torch.sqrt((1.0 - torch.pow(cosine, 2)))
+        cosine = F.linear(F.normalize(embbedings), F.normalize(self.weight))
+        sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
         phi = cosine * self.cos_m - sine * self.sin_m
         if self.easy_margin:
             phi = torch.where(cosine > 0, phi, cosine)
@@ -61,10 +75,12 @@ class ArcMargin(nn.Module):
 class ArcFace(nn.Module):
     def __init__(self, classnum, backbone='shufflenetv2'):
         super(ArcFace, self).__init__()
-        if backbone == 'resnet50':
-            self.backbone = Resnet50(pretrained=True, embedding_size=512)
-        elif backbone == 'shufflenetv2':
-            self.backbone = ShufflenetV2(pretrained=True, embedding_size=512)
+
+        # if backbone == 'resnet50':
+        #     self.backbone = Resnet50(pretrained=True, embedding_size=512)
+        # elif backbone == 'shufflenetv2':
+        #     self.backbone = ShufflenetV2(pretrained=True, embedding_size=512)
+        self.backbone = Backbone()
         self.margin = ArcMargin(classnum=classnum)
 
     def forward(self, x, label):

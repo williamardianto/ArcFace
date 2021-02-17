@@ -5,11 +5,16 @@ import torch
 from torch.nn import functional as F
 
 import lfw
-from model import MobileFaceNet
+from models.models import MobileFaceNet
 
 def get_eval_dataset(image_dir,pairs):
     pairs = lfw.read_pairs(os.path.expanduser(pairs))
     paths, actual_issame = lfw.get_paths(os.path.expanduser(image_dir), pairs)
+    return paths, actual_issame
+
+def get_eval_dataset_insightface(image_dir,pairs):
+    pairs = lfw.read_pairs_insightface(os.path.expanduser(pairs))
+    paths, actual_issame = lfw.get_paths_insightface(os.path.expanduser(image_dir), pairs)
     return paths, actual_issame
 
 def evaluate(model, paths, actual_issame, batch_size=64, embedding_size=512, device='cpu'):
@@ -27,9 +32,9 @@ def evaluate(model, paths, actual_issame, batch_size=64, embedding_size=512, dev
 
             embeddings[current_idx:current_idx + b_size] = F.normalize(model(images)).cpu().numpy()
 
-    tpr, fpr, auc, accuracy, best_threshold = lfw.evaluate(embeddings, actual_issame)
+    tpr, fpr, accuracy, val, val_std, far, auc, best_threshold = lfw.evaluate(embeddings, actual_issame)
 
-    return tpr, fpr, auc, accuracy, best_threshold
+    return tpr, fpr, accuracy, val, val_std, far, auc, best_threshold
 
 if __name__ == '__main__':
     mobileFacenet = MobileFaceNet(512).to('cuda')

@@ -5,7 +5,7 @@ import torch
 from torch.nn import functional as F
 
 import lfw
-from model import MobileFaceNet
+from models import MobileFaceNet
 
 def get_eval_dataset(image_dir,pairs):
     pairs = lfw.read_pairs(os.path.expanduser(pairs))
